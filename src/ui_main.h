@@ -13,6 +13,18 @@ typedef enum {
     BTN_STOP
 } BtnType;
 
+typedef enum {
+    ENABLE,
+    DISABLE
+} BtnState;
+
+typedef enum {
+    APP_STATE_READY,
+    APP_STATE_RUNNING,
+    APP_STATE_PAUSED,
+    APP_STATE_STOPPED
+} AppState;
+
 void ui_main_create(void);
 
 #ifdef __cplusplus

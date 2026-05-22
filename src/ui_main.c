@@ -1,51 +1,13 @@
 #include "ui_main.h"
 #include "lvgl.h"
-
 #include <fcntl.h>
 #include <unistd.h>
 #include <string.h>
 #include <stdio.h>
 #include <errno.h>
+#include <stdint.h>
 
 #define FAST_LIVO_FIFO "/tmp/fast_livo_cmd"
-
-//状态标签，用来显示当前状态
-static lv_obj_t *status_label = NULL;
-
-static void set_status(const char *text)
-{
-    if (status_label) {
-        lv_label_set_text(status_label, text);
-    }
-}
-
-static void send_fast_livo_cmd(const char *cmd)
-{
-    //只有先创建了管道文件，才能打开成功         O_NONBLOCK：不管有没有人来读管道
-    int fd = open(FAST_LIVO_FIFO, O_WRONLY | O_NONBLOCK);
-    if (fd < 0) {
-        printf("open fifo failed: %s\n", strerror(errno));
-        set_status("NodeManager not ready");
-        return;
-    }
-
-    write(fd, cmd, strlen(cmd));
-    write(fd, "\n", 1);
-    close(fd);
-
-    printf("send fast-livo cmd: %s\n", cmd);
-
-    //strcmp：对比两个字符串是不是一模一样
-    if (strcmp(cmd, "start") == 0) {
-        set_status("Sent: START");
-    } else if (strcmp(cmd, "pause") == 0) {
-        set_status("Sent: PAUSE");
-    } else if (strcmp(cmd, "resume") == 0) {
-        set_status("Sent: RESUME");
-    } else if (strcmp(cmd, "stop") == 0) {
-        set_status("Sent: STOP");
-    }
-}
 
 /*******************************************************
     用户点击 START 按钮
@@ -92,31 +54,155 @@ static void send_fast_livo_cmd(const char *cmd)
 
 */
 
+/**********************************************************************************
 
-// static void start_btn_cb(lv_event_t *e)
-// {
-//     LV_UNUSED(e);//不过这个函数里的逻辑暂时用不到 e，所以写了：LV_UNUSED(e);  因为每个按键都对应一种状态，能拿到信息是定死的
-//     send_fast_livo_cmd("start");
-// }
+                            用户点击 START
+                            ↓
+                        LVGL 触发 LV_EVENT_CLICKED
+                            ↓
+                        调用 btn_cb(e)
+                            ↓
+                        btn_cb 从 e 里拿到被点击按钮
+                            ↓
+                        通过 lv_obj_get_user_data(btn) 得到 BTN_START
+                            ↓
+                        进入 case BTN_START
+                            ↓
+                        send_fast_livo_cmd("start")
+                            ↓
+                        如果 FIFO 打开失败：
+                                显示 NodeManager not ready
+                                返回 false
+                                不切换状态
+                            ↓
+                        如果 FIFO 写入成功：
+                                返回 true
+                                set_app_state(APP_STATE_RUNNING)
+                                    ↓
+                                    update_btn_by_app_state(APP_STATE_RUNNING)
+                                        START 禁用
+                                        PAUSE 启用
+                                        RESUME 禁用
+                                        STOP 启用
+                                    ↓
+                                    update_status_label_by_app_state(APP_STATE_RUNNING)
+                                        status_label 显示 Running
 
-// static void pause_btn_cb(lv_event_t *e)
-// {
-//     LV_UNUSED(e);
-//     send_fast_livo_cmd("pause");
-// }
 
-// static void resume_btn_cb(lv_event_t *e)
-// {
-//     LV_UNUSED(e);
-//     send_fast_livo_cmd("resume");
-// }
+********************************************************************************************************/
 
-// static void stop_btn_cb(lv_event_t *e)
-// {
-//     LV_UNUSED(e);
-//     send_fast_livo_cmd("stop");
-// }
 
+static lv_obj_t *start_btn = NULL;
+static lv_obj_t *pause_btn = NULL;
+static lv_obj_t *resume_btn = NULL;
+static lv_obj_t *stop_btn = NULL;
+
+//状态标签，用来显示当前状态
+static lv_obj_t *status_label = NULL;
+
+static void set_label_status(const char *text)
+{
+    if (status_label) {
+        lv_label_set_text(status_label, text);
+    }
+}
+
+
+//LVGL 里几乎所有东西都是 lv_obj_t *
+//根据程序状态，统一刷新按钮状态,也就是根据系统状态，决定每个按钮是可点还是不可点，不要肤浅的只用可点和不可点
+
+static void btn_set_state(lv_obj_t *btn, bool enable)
+{
+    if(!btn)return;
+    
+    if(enable){
+        lv_obj_clear_state(btn, LV_STATE_DISABLED);
+    }
+    else{
+        lv_obj_add_state(btn, LV_STATE_DISABLED);
+    }
+}
+
+
+static void update_btn_by_app_state(AppState state)
+{
+    switch(state){
+        case APP_STATE_READY://停止和开始的按键使能状态是一样的
+        case APP_STATE_STOPPED:
+            btn_set_state(start_btn, true);
+            btn_set_state(pause_btn, false);
+            btn_set_state(resume_btn, false);
+            btn_set_state(stop_btn, false);
+        break;
+
+        case APP_STATE_RUNNING:
+            btn_set_state(start_btn, false);
+            btn_set_state(pause_btn, true);
+            btn_set_state(resume_btn, false);
+            btn_set_state(stop_btn, true);
+        break;
+
+        case APP_STATE_PAUSED:
+            btn_set_state(start_btn, false);
+            btn_set_state(pause_btn, false);
+            btn_set_state(resume_btn, true);
+            btn_set_state(stop_btn, true);
+        break;
+    }
+}
+
+static void update_status_label_by_app_state(AppState state)
+{
+    switch (state) {
+    case APP_STATE_READY:
+        set_label_status("Ready");
+        break;
+
+    case APP_STATE_RUNNING:
+        set_label_status("Running");
+        break;
+
+    case APP_STATE_PAUSED:
+        set_label_status("Paused");
+        break;
+
+    case APP_STATE_STOPPED:
+        set_label_status("Stopped");
+        break;
+
+    default:
+        set_label_status("Unknown");
+        break;
+    }
+}
+
+
+static void set_app_state(AppState state)
+{
+    update_btn_by_app_state(state);
+    update_status_label_by_app_state(state);
+}
+
+
+
+static bool send_fast_livo_cmd(const char *cmd)
+{
+    //只有先创建了管道文件，才能打开成功         O_NONBLOCK：不管有没有人来读管道
+    int fd = open(FAST_LIVO_FIFO, O_WRONLY | O_NONBLOCK);
+    if (fd < 0) {
+        printf("open fifo failed: %s\n", strerror(errno));
+        set_label_status("NodeManager not ready");
+        return false;
+    }
+
+    write(fd, cmd, strlen(cmd));
+    write(fd, "\n", 1);
+    close(fd);
+
+    printf("send fast-livo cmd: %s\n", cmd);
+
+    return true;
+}
 
 static void btn_cb(lv_event_t *e)
 {
@@ -127,14 +213,31 @@ static void btn_cb(lv_event_t *e)
     //lv_obj_get_user_data(btn) 返回的是 void* 类型（指针)
     BtnType type = (BtnType)(uintptr_t)lv_obj_get_user_data(btn);
     switch(type) {
-        case BTN_START:  send_fast_livo_cmd("start"); break;
-        case BTN_PAUSE:  send_fast_livo_cmd("pause"); break;
-        case BTN_RESUME: send_fast_livo_cmd("resume"); break;
-        case BTN_STOP:   send_fast_livo_cmd("stop"); break;
+        case BTN_START:
+            if (send_fast_livo_cmd("start")) {
+                set_app_state(APP_STATE_RUNNING);
+            }
+        break;
+
+        case BTN_PAUSE:
+            if (send_fast_livo_cmd("pause")) {
+                set_app_state(APP_STATE_PAUSED);
+            }
+        break;
+
+        case BTN_RESUME:
+            if (send_fast_livo_cmd("resume")) {
+                set_app_state(APP_STATE_RUNNING);
+            }
+        break;
+
+        case BTN_STOP:
+            if (send_fast_livo_cmd("stop")) {
+                set_app_state(APP_STATE_STOPPED);
+            }
+        break;
     }
 }
-
-
 
 static lv_obj_t *create_ctrl_btn(lv_obj_t *parent,
                                  const char *text,
@@ -147,7 +250,8 @@ static lv_obj_t *create_ctrl_btn(lv_obj_t *parent,
     lv_obj_set_size(btn, 180, 70);
     lv_obj_set_pos(btn, x, y);
     lv_obj_add_event_cb(btn, cb, LV_EVENT_CLICKED, NULL);
-    lv_obj_set_user_data(btn, (void *)type);
+    //lv_obj_set_user_data(btn, (void *)type);   对比一下写法的差异
+    lv_obj_set_user_data(btn, (void *)(uintptr_t)type);
 
     lv_obj_t *label = lv_label_create(btn);
     lv_label_set_text(label, text);
@@ -156,7 +260,7 @@ static lv_obj_t *create_ctrl_btn(lv_obj_t *parent,
     return btn;
 }
 
-//LVGL 里几乎所有东西都是 lv_obj_t *
+
 
 void ui_main_create(void)
 {
@@ -168,12 +272,14 @@ void ui_main_create(void)
     lv_label_set_text(title, "FAST-LIVO2 Demo Control");
     lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 30);//align  设置排放位置  LV_ALIGN_TOP_MID  顶部中间
     
-    create_ctrl_btn(scr, "START",  btn_cb,  80,  120, BTN_START);
-    create_ctrl_btn(scr, "PAUSE",  btn_cb,  320, 120, BTN_PAUSE);
-    create_ctrl_btn(scr, "RESUME", btn_cb, 80,  240, BTN_RESUME);
-    create_ctrl_btn(scr, "STOP",   btn_cb,   320, 240, BTN_STOP);
+    start_btn = create_ctrl_btn(scr, "START",  btn_cb,  80,  120, BTN_START);
+    pause_btn = create_ctrl_btn(scr, "PAUSE",  btn_cb,  320, 120, BTN_PAUSE);
+    resume_btn = create_ctrl_btn(scr, "RESUME", btn_cb, 80,  240, BTN_RESUME);
+    stop_btn = create_ctrl_btn(scr, "STOP",   btn_cb,   320, 240, BTN_STOP);
 
     status_label = lv_label_create(scr);
     lv_label_set_text(status_label, "Ready");
     lv_obj_align(status_label, LV_ALIGN_BOTTOM_MID, 0, -30);
+
+    set_app_state(APP_STATE_READY);
 }

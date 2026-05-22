@@ -409,6 +409,7 @@ target_link_libraries(lvgl PUBLIC ${PKG_CONFIG_LIB} m pthread rt dl)
 add_executable(lvglsim 
     src/main.c
     src/ui_main.c
+    src/pratice_demo.c
 )
 
 # Repeat lvgl_linux to resolve circular dependency with lvgl
