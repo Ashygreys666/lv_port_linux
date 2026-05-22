@@ -93,40 +93,61 @@ static void send_fast_livo_cmd(const char *cmd)
 */
 
 
-static void start_btn_cb(lv_event_t *e)
+// static void start_btn_cb(lv_event_t *e)
+// {
+//     LV_UNUSED(e);//不过这个函数里的逻辑暂时用不到 e，所以写了：LV_UNUSED(e);  因为每个按键都对应一种状态，能拿到信息是定死的
+//     send_fast_livo_cmd("start");
+// }
+
+// static void pause_btn_cb(lv_event_t *e)
+// {
+//     LV_UNUSED(e);
+//     send_fast_livo_cmd("pause");
+// }
+
+// static void resume_btn_cb(lv_event_t *e)
+// {
+//     LV_UNUSED(e);
+//     send_fast_livo_cmd("resume");
+// }
+
+// static void stop_btn_cb(lv_event_t *e)
+// {
+//     LV_UNUSED(e);
+//     send_fast_livo_cmd("stop");
+// }
+
+
+static void btn_cb(lv_event_t *e)
 {
-    LV_UNUSED(e);//不过这个函数里的逻辑暂时用不到 e，所以写了：LV_UNUSED(e);  因为每个按键都对应一种状态，能拿到信息是定死的
-    send_fast_livo_cmd("start");
+    //获取是哪个按钮
+    //在LVGL里面，只要获得按钮的指针，就能通过这个指针获取这个按钮的所有信息
+    lv_obj_t *btn = lv_event_get_target(e);
+    //uintptr_t 是和指针同宽的无符号整数类型
+    //lv_obj_get_user_data(btn) 返回的是 void* 类型（指针)
+    BtnType type = (BtnType)(uintptr_t)lv_obj_get_user_data(btn);
+    switch(type) {
+        case BTN_START:  send_fast_livo_cmd("start"); break;
+        case BTN_PAUSE:  send_fast_livo_cmd("pause"); break;
+        case BTN_RESUME: send_fast_livo_cmd("resume"); break;
+        case BTN_STOP:   send_fast_livo_cmd("stop"); break;
+    }
 }
 
-static void pause_btn_cb(lv_event_t *e)
-{
-    LV_UNUSED(e);
-    send_fast_livo_cmd("pause");
-}
 
-static void resume_btn_cb(lv_event_t *e)
-{
-    LV_UNUSED(e);
-    send_fast_livo_cmd("resume");
-}
-
-static void stop_btn_cb(lv_event_t *e)
-{
-    LV_UNUSED(e);
-    send_fast_livo_cmd("stop");
-}
 
 static lv_obj_t *create_ctrl_btn(lv_obj_t *parent,
                                  const char *text,
                                  lv_event_cb_t cb,
                                  int x,
-                                 int y)
+                                 int y,
+                                 BtnType type)
 {
     lv_obj_t *btn = lv_button_create(parent);
     lv_obj_set_size(btn, 180, 70);
     lv_obj_set_pos(btn, x, y);
     lv_obj_add_event_cb(btn, cb, LV_EVENT_CLICKED, NULL);
+    lv_obj_set_user_data(btn, (void *)type);
 
     lv_obj_t *label = lv_label_create(btn);
     lv_label_set_text(label, text);
@@ -134,6 +155,7 @@ static lv_obj_t *create_ctrl_btn(lv_obj_t *parent,
 
     return btn;
 }
+
 //LVGL 里几乎所有东西都是 lv_obj_t *
 
 void ui_main_create(void)
@@ -146,10 +168,10 @@ void ui_main_create(void)
     lv_label_set_text(title, "FAST-LIVO2 Demo Control");
     lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 30);//align  设置排放位置  LV_ALIGN_TOP_MID  顶部中间
     
-    create_ctrl_btn(scr, "START",  start_btn_cb,  80,  120);
-    create_ctrl_btn(scr, "PAUSE",  pause_btn_cb,  320, 120);
-    create_ctrl_btn(scr, "RESUME", resume_btn_cb, 80,  240);
-    create_ctrl_btn(scr, "STOP",   stop_btn_cb,   320, 240);
+    create_ctrl_btn(scr, "START",  btn_cb,  80,  120, BTN_START);
+    create_ctrl_btn(scr, "PAUSE",  btn_cb,  320, 120, BTN_PAUSE);
+    create_ctrl_btn(scr, "RESUME", btn_cb, 80,  240, BTN_RESUME);
+    create_ctrl_btn(scr, "STOP",   btn_cb,   320, 240, BTN_STOP);
 
     status_label = lv_label_create(scr);
     lv_label_set_text(status_label, "Ready");

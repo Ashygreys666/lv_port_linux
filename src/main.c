@@ -166,7 +166,7 @@ int main(int argc, char ** argv)
     /* Initialize LVGL. */
     lv_init();
 
-    /* Initialize the configured backend */
+    /* Initialize the configured backend */   //初始化后端，可以理解为lvgl控件和linux驱动的中间适配层    相当于MCU的display_init();
     if(driver_backends_init_backend(selected_backend) == -1) {
         die("Failed to initialize display backend");
     }
@@ -177,7 +177,7 @@ int main(int argc, char ** argv)
         lv_display_set_rotation(NULL, settings.rotation);
     }
 
-    /* Enable for EVDEV support */
+    /* Enable for EVDEV support *///是输入设备配置，负责告诉 EVDEV 从哪个 /dev/input/eventX 读触摸/鼠标。  相当于MCU的touch_init();
 #if LV_USE_EVDEV
     if(driver_backends_init_backend("EVDEV") == -1) {
         die("Failed to initialize evdev");
@@ -190,7 +190,7 @@ int main(int argc, char ** argv)
     ui_main_create();
 
     /* Enter the run loop of the selected backend */
-    driver_backends_run_loop();
+    driver_backends_run_loop();//相当于MCU里面的while
 
     return 0;
 }
