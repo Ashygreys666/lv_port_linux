@@ -1,0 +1,36 @@
+# build output
+build/
+install/
+log/
+
+# cache
+.cache/
+.ccls-cache/
+clangd/
+compile_commands.json
+
+# logs
+*.log
+v9_run.log
+
+# temporary files
+*.tmp
+*.swp
+*~
+
+# object / binary files
+*.o
+*.a
+*.so
+*.out
+*.elf
+*.bin
+
+# CMake generated files
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+
+# VS Code local settings
+.vscode/
