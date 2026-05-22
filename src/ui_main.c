@@ -9,6 +9,7 @@
 
 #define FAST_LIVO_FIFO "/tmp/fast_livo_cmd"
 
+//状态标签，用来显示当前状态
 static lv_obj_t *status_label = NULL;
 
 static void set_status(const char *text)
@@ -20,6 +21,7 @@ static void set_status(const char *text)
 
 static void send_fast_livo_cmd(const char *cmd)
 {
+    //只有先创建了管道文件，才能打开成功         O_NONBLOCK：不管有没有人来读管道
     int fd = open(FAST_LIVO_FIFO, O_WRONLY | O_NONBLOCK);
     if (fd < 0) {
         printf("open fifo failed: %s\n", strerror(errno));
@@ -33,6 +35,7 @@ static void send_fast_livo_cmd(const char *cmd)
 
     printf("send fast-livo cmd: %s\n", cmd);
 
+    //strcmp：对比两个字符串是不是一模一样
     if (strcmp(cmd, "start") == 0) {
         set_status("Sent: START");
     } else if (strcmp(cmd, "pause") == 0) {
@@ -44,9 +47,55 @@ static void send_fast_livo_cmd(const char *cmd)
     }
 }
 
+/*******************************************************
+    用户点击 START 按钮
+            ↓
+    LVGL 检测到 LV_EVENT_CLICKED
+            ↓
+    LVGL 调用 start_btn_cb(e)
+            ↓
+    start_btn_cb 调用 send_fast_livo_cmd("start")
+            ↓
+    程序往 FIFO 里写入 start 命令
+********************************************************/
+
+
+//cb  事件回调函数      e是事件信息，他里面包含了是谁触发了事件，是什么事件，有没有用户数据，当前状态是什么
+//比如你可以从 e 里拿到被点击的按钮：lv_obj_t *btn = lv_event_get_target(e);
+//也可以拿到用户数据：void *user_data = lv_event_get_user_data(e);
+
+/*
+    e 里面常用能取到这几类东西：
+    lv_event_get_target(e);     // 谁触发了这个事件，比如哪个按钮
+    lv_event_get_code(e);       // 触发了什么事件，比如点击、按下、释放
+    lv_event_get_user_data(e);  // 绑定事件时传进来的自定义数据
+
+    例子：
+    static void start_btn_cb(lv_event_t *e)
+    {
+        lv_obj_t *btn = lv_event_get_target(e);
+
+        send_fast_livo_cmd("start");
+
+        lv_obj_add_state(btn, LV_STATE_DISABLED);
+    }
+
+    用户点击 START 按钮
+    ↓
+    进入 start_btn_cb
+    ↓
+    从 e 里拿到被点击的按钮 btn
+    ↓
+    发送 start 命令
+    ↓
+    把这个按钮禁用
+
+*/
+
+
 static void start_btn_cb(lv_event_t *e)
 {
-    LV_UNUSED(e);
+    LV_UNUSED(e);//不过这个函数里的逻辑暂时用不到 e，所以写了：LV_UNUSED(e);  因为每个按键都对应一种状态，能拿到信息是定死的
     send_fast_livo_cmd("start");
 }
 
@@ -85,17 +134,18 @@ static lv_obj_t *create_ctrl_btn(lv_obj_t *parent,
 
     return btn;
 }
+//LVGL 里几乎所有东西都是 lv_obj_t *
 
 void ui_main_create(void)
 {
-    lv_obj_t *scr = lv_screen_active();
+    lv_obj_t *scr = lv_screen_active();//获取当前活动的屏幕
 
-    lv_obj_clean(scr);
+    lv_obj_clean(scr);//清除屏幕上的旧控件
 
     lv_obj_t *title = lv_label_create(scr);
     lv_label_set_text(title, "FAST-LIVO2 Demo Control");
-    lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 30);
-
+    lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 30);//align  设置排放位置  LV_ALIGN_TOP_MID  顶部中间
+    
     create_ctrl_btn(scr, "START",  start_btn_cb,  80,  120);
     create_ctrl_btn(scr, "PAUSE",  pause_btn_cb,  320, 120);
     create_ctrl_btn(scr, "RESUME", resume_btn_cb, 80,  240);

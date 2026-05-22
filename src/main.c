@@ -29,6 +29,7 @@
 #include "src/lib/driver_backends.h"
 #include "src/lib/simulator_util.h"
 #include "src/lib/simulator_settings.h"
+#include "ui_main.h"
 
 /* Internal functions */
 static void configure_simulator(int argc, char ** argv);
