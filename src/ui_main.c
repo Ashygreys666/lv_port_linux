@@ -386,6 +386,29 @@ static lv_obj_t *create_ctrl_btn_flex(lv_obj_t *parent,
                         用 Grid
 
 */
+static int32_t main_col_dsc[] = {
+    LV_GRID_FR(1),//这一列占满可用宽度
+    LV_GRID_TEMPLATE_LAST//这一行/列规则到这里结束了
+};
+
+static int32_t main_row_dsc[] = {
+    70,//第 0 行：70 像素，用来放标题
+    LV_GRID_FR(1),//第 1 行：占剩下的空间，用来放按钮区
+    50,//第 2 行：50 像素，用来放状态栏
+    LV_GRID_TEMPLATE_LAST//这一行/列规则到这里结束了
+};
+
+/*
+                    ┌──────────────────────────────┐
+                    │ 第 0 行：标题，高 70           │
+                    ├──────────────────────────────┤
+                    │ 第 1 行：按钮区，占剩余空间     │
+                    ├──────────────────────────────┤
+                    │ 第 2 行：状态栏，高 50         │
+                    └──────────────────────────────┘
+
+*/
+
 
 void ui_main_create(void)
 {                         
@@ -395,13 +418,34 @@ void ui_main_create(void)
 
     ui_style_init();
 
-    lv_obj_t *title = lv_label_create(scr);
-    lv_label_set_text(title, "FAST-LIVO2 Demo Control");
-    lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 30);//align  设置排放位置  LV_ALIGN_TOP_MID  顶部中间
+    lv_obj_t *page = lv_obj_create(scr);
+    lv_obj_set_size(page, LV_PCT(100), LV_PCT(100));//LV_PCT（100）把 page 的宽/高度设置成父对象宽度的 100%
+    lv_obj_center(page);
+                                        //main_col_dsc：主页面列描述  main_row_dsc：主页面行描述
+    lv_obj_set_grid_dsc_array(page, main_col_dsc, main_row_dsc);//给 page 设置 Grid 布局 
 
-    lv_obj_t *btn_cont = lv_obj_create(scr);
+    lv_obj_clear_flag(page, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_scrollbar_mode(page, LV_SCROLLBAR_MODE_OFF);
+
+    //LVGL 对 全屏铺满父容器 的 obj，默认是：无阴影、无轮廓、纯背景
+    lv_obj_set_style_bg_opa(page, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_border_width(page, 0, LV_PART_MAIN);
+
+    lv_obj_set_style_pad_all(page, 0, LV_PART_MAIN);//设置四周内边距
+
+
+
+    lv_obj_t *title = lv_label_create(page);
+    lv_label_set_text(title, "FAST-LIVO2 Demo Control");
+    // lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 30);//align  设置排放位置  LV_ALIGN_TOP_MID  顶部中间
+    lv_obj_set_grid_cell(title,
+                        LV_GRID_ALIGN_CENTER, 0, 1,//title 放在第 0 列，占 1 列  水平居中
+                        LV_GRID_ALIGN_CENTER, 0, 1);//title 放在第 0 行，占 1 行    垂直居中
+
+
+    lv_obj_t *btn_cont = lv_obj_create(page);
     lv_obj_set_size(btn_cont, 520, 200);
-    lv_obj_align(btn_cont, LV_ALIGN_CENTER, 0, 20);//LV_ALIGN_CENTER  居中对齐，整体往下偏一点
+    // lv_obj_align(btn_cont, LV_ALIGN_CENTER, 0, 20);//LV_ALIGN_CENTER  居中对齐，整体往下偏一点
 
     lv_obj_clear_flag(btn_cont, LV_OBJ_FLAG_SCROLLABLE);//取消这个容器的可滚动属性
     lv_obj_set_scrollbar_mode(btn_cont, LV_SCROLLBAR_MODE_OFF);//关闭滚动条显示
@@ -410,7 +454,8 @@ void ui_main_create(void)
     lv_obj_set_style_bg_opa(btn_cont, LV_OPA_TRANSP, LV_PART_MAIN);//把容器背景透明度设置为完全透明   LV_OPA_TRANSP  :完全透明 LV_OPA_10   10% 不透明
     lv_obj_set_style_border_width(btn_cont, 0, LV_PART_MAIN);//边框    边框向里面
     lv_obj_set_style_outline_width(btn_cont, 0, LV_PART_MAIN);//外轮廓 边框向外面
-    lv_obj_set_style_shadow_width(btn_cont, 100, LV_PART_MAIN);//阴影   边框旁边会加点黑黑的东西
+    lv_obj_set_style_shadow_width(btn_cont, 0, LV_PART_MAIN);//阴影   边框旁边会加点黑黑的东西
+
 
     lv_obj_set_flex_flow(btn_cont, LV_FLEX_FLOW_ROW_WRAP);//LV_FLEX_FLOW_ROW → 横向排列（从左到右）WRAP 换行（一行放不下，自动换到下一行）       COLUMN = 列（竖
     lv_obj_set_flex_align(btn_cont,
@@ -421,18 +466,23 @@ void ui_main_create(void)
     lv_obj_set_style_pad_row(btn_cont, 20, LV_PART_MAIN);//设置按钮之间的行间距
     lv_obj_set_style_pad_column(btn_cont, 30, LV_PART_MAIN);//设置按钮之间的列间距
 
-    // start_btn = create_ctrl_btn(scr, "START",  btn_cb,  80,  120, BTN_START);
-    // pause_btn = create_ctrl_btn(scr, "PAUSE",  btn_cb,  320, 120, BTN_PAUSE);
-    // resume_btn = create_ctrl_btn(scr, "RESUME", btn_cb, 80,  240, BTN_RESUME);
-    // stop_btn = create_ctrl_btn(scr, "STOP",   btn_cb,   320, 240, BTN_STOP);
+    lv_obj_set_grid_cell(btn_cont,
+                     LV_GRID_ALIGN_CENTER, 0, 1,
+                     LV_GRID_ALIGN_CENTER, 1, 1);//btn_cont 放到第 1 行
+
+
     start_btn  = create_ctrl_btn_flex(btn_cont, "START",  CTRL_BTN_W, CTRL_BTN_H, BTN_START);
     pause_btn  = create_ctrl_btn_flex(btn_cont, "PAUSE",  CTRL_BTN_W, CTRL_BTN_H, BTN_PAUSE);
     resume_btn = create_ctrl_btn_flex(btn_cont, "RESUME", CTRL_BTN_W, CTRL_BTN_H, BTN_RESUME);
     stop_btn   = create_ctrl_btn_flex(btn_cont, "STOP",   CTRL_BTN_W, CTRL_BTN_H, BTN_STOP);
 
-    status_label = lv_label_create(scr);
+    status_label = lv_label_create(page);
     lv_label_set_text(status_label, "Ready");
-    lv_obj_align(status_label, LV_ALIGN_BOTTOM_MID, 0, -30);
+    // lv_obj_align(status_label, LV_ALIGN_BOTTOM_MID, 0, -30);
+
+    lv_obj_set_grid_cell(status_label,
+                     LV_GRID_ALIGN_CENTER, 0, 1,
+                     LV_GRID_ALIGN_CENTER, 2, 1);//btn_cont 放到第 1 行
 
     set_app_state(APP_STATE_READY);
 }
