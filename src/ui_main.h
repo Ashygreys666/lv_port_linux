@@ -25,6 +25,9 @@ typedef enum {
     APP_STATE_STOPPED
 } AppState;
 
+#define CTRL_BTN_W 180
+#define CTRL_BTN_H 70
+
 void ui_main_create(void);
 
 #ifdef __cplusplus

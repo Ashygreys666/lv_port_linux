@@ -54,6 +54,34 @@
 
 */
 
+/*    
+
+        涉及设置ui  style的函数
+        lv_style_init() ：lv_style_init(&style_start_btn) 把这个 style 清空并初始化，准备往里面设置颜色、圆角等属性
+        lv_style_set_bg_color()
+        lv_style_set_text_color()
+        lv_style_set_radius() 设置圆角  lv_style_set_radius(&style_start_btn, 0);这个是直角
+        lv_style_set_border_width() 设置边框宽度      lv_style_set_border_width(&style_start_btn, 0); 这个是不要边框
+        lv_style_set_border_color(&style_start_btn, lv_color_white());设置边框颜色
+        lv_style_set_opa()  lv_style_set_opa(&style_start_btn, LV_OPA_80);设置整体透明度  lv_style_set_opa(&style_disabled, LV_OPA_40); LV_OPA_COVER   // 完全不透明 LV_OPA_TRANSP  // 完全透明
+        禁用按钮的时候可以让他变淡
+
+        lv_obj_add_style()  lv_obj_add_style(start_btn, &style_start_btn, LV_PART_MAIN); LV_PART_MAIN 表示控件主体  把 style_start_btn 这个样式，应用到 start_btn 的主体部分
+
+*/
+/*
+                Flex类的  Flex 就是给父容器设置自动排版规则，子控件只管创建和设置大小，不再自己写 x/y 坐标
+            lv_obj_create()              // 创建容器
+            lv_obj_set_size()            // 设置容器/按钮大小
+            lv_obj_align()               // 设置容器位置
+            lv_obj_set_flex_flow()       // 设置 Flex 排列方向
+            lv_obj_set_flex_align()      // 设置 Flex 对齐方式
+            lv_obj_set_style_pad_row()   // 设置行间距
+            lv_obj_set_style_pad_column()// 设置列间距
+
+*/
+
+
 /**********************************************************************************
 
                             用户点击 START
@@ -91,11 +119,62 @@
 
 ********************************************************************************************************/
 
-
+/*按钮指针*/
 static lv_obj_t *start_btn = NULL;
 static lv_obj_t *pause_btn = NULL;
 static lv_obj_t *resume_btn = NULL;
 static lv_obj_t *stop_btn = NULL;
+
+/*按钮样式*/
+
+static lv_style_t style_ctrl_btn;//通用按钮样式
+
+/*统一初始化所有按钮的基础样式*/
+static void btn_style_init(void)
+{
+    lv_style_init(&style_ctrl_btn);
+    lv_style_set_radius(&style_ctrl_btn, 12);
+    lv_style_set_text_color(&style_ctrl_btn, lv_color_white());
+    lv_style_set_border_width(&style_ctrl_btn, 0);
+}
+
+/*ui 整体风格初始化*/
+static void ui_style_init(void)
+{
+    btn_style_init();//按键的
+}
+
+static void apply_btn_color(lv_obj_t *btn, BtnType type)
+{
+    switch (type) {
+    case BTN_START:
+        lv_obj_set_style_bg_color(btn,
+                                  lv_palette_main(LV_PALETTE_GREEN),
+                                  LV_PART_MAIN);
+        break;
+
+    case BTN_PAUSE:
+        lv_obj_set_style_bg_color(btn,
+                                  lv_palette_main(LV_PALETTE_ORANGE),
+                                  LV_PART_MAIN);
+        break;
+
+    case BTN_RESUME:
+        lv_obj_set_style_bg_color(btn,
+                                  lv_palette_main(LV_PALETTE_BLUE),
+                                  LV_PART_MAIN);
+        break;
+
+    case BTN_STOP:
+        lv_obj_set_style_bg_color(btn,
+                                  lv_palette_main(LV_PALETTE_RED),
+                                  LV_PART_MAIN);
+        break;
+
+    default:
+        break;
+    }
+}
 
 //状态标签，用来显示当前状态
 static lv_obj_t *status_label = NULL;
@@ -106,7 +185,6 @@ static void set_label_status(const char *text)
         lv_label_set_text(status_label, text);
     }
 }
-
 
 //LVGL 里几乎所有东西都是 lv_obj_t *
 //根据程序状态，统一刷新按钮状态,也就是根据系统状态，决定每个按钮是可点还是不可点，不要肤浅的只用可点和不可点
@@ -122,7 +200,6 @@ static void btn_set_state(lv_obj_t *btn, bool enable)
         lv_obj_add_state(btn, LV_STATE_DISABLED);
     }
 }
-
 
 static void update_btn_by_app_state(AppState state)
 {
@@ -176,14 +253,11 @@ static void update_status_label_by_app_state(AppState state)
     }
 }
 
-
 static void set_app_state(AppState state)
 {
     update_btn_by_app_state(state);
     update_status_label_by_app_state(state);
 }
-
-
 
 static bool send_fast_livo_cmd(const char *cmd)
 {
@@ -253,6 +327,34 @@ static lv_obj_t *create_ctrl_btn(lv_obj_t *parent,
     //lv_obj_set_user_data(btn, (void *)type);   对比一下写法的差异
     lv_obj_set_user_data(btn, (void *)(uintptr_t)type);
 
+    //先统一添加公共外观
+    lv_obj_add_style(btn, &style_ctrl_btn, LV_PART_MAIN);
+    //再根据需求添加特定颜色
+    apply_btn_color(btn, type);
+
+    lv_obj_t *label = lv_label_create(btn);
+    lv_label_set_text(label, text);
+    lv_obj_center(label);
+
+    return btn;
+}
+
+/*用flex写的按钮*/
+static lv_obj_t *create_ctrl_btn_flex(lv_obj_t *parent,
+                                      const char *text,
+                                      const int w,
+                                      const int h,
+                                      BtnType type)
+{
+    lv_obj_t *btn = lv_button_create(parent);
+    lv_obj_set_size(btn, w, h);
+
+    lv_obj_add_event_cb(btn, btn_cb, LV_EVENT_CLICKED, NULL);
+    lv_obj_set_user_data(btn, (void *)(uintptr_t)type);
+
+    lv_obj_add_style(btn, &style_ctrl_btn, LV_PART_MAIN);
+    apply_btn_color(btn, type);
+
     lv_obj_t *label = lv_label_create(btn);
     lv_label_set_text(label, text);
     lv_obj_center(label);
@@ -262,20 +364,71 @@ static lv_obj_t *create_ctrl_btn(lv_obj_t *parent,
 
 
 
-void ui_main_create(void)
-{
-    lv_obj_t *scr = lv_screen_active();//获取当前活动的屏幕
+/*
+            1. 获取屏幕并清空
+            2. 初始化 style
+            3. 创建标题                           
+            4. 创建 Flex 容器
+            5. 设置 Flex 规则
+            6. 把按钮创建到容器里
+            7. 创建状态 label
+            8. 设置初始 AppState
 
+*/
+/*
+                    一个控件固定放某个位置：
+                    用 lv_obj_align()
+
+                    多个控件要自动排队：
+                        用 Flex
+
+                    多个控件要放到指定行列：
+                        用 Grid
+
+*/
+
+void ui_main_create(void)
+{                         
+    //注意，虽然scr运行完之后会消失，但是他指向的LVGL屏幕对象不会消失                  野指针的定义是指针还在，但是它指向的对象已经被释放/删除了
+    lv_obj_t *scr = lv_screen_active();//获取当前活动的屏幕
     lv_obj_clean(scr);//清除屏幕上的旧控件
+
+    ui_style_init();
 
     lv_obj_t *title = lv_label_create(scr);
     lv_label_set_text(title, "FAST-LIVO2 Demo Control");
     lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 30);//align  设置排放位置  LV_ALIGN_TOP_MID  顶部中间
-    
-    start_btn = create_ctrl_btn(scr, "START",  btn_cb,  80,  120, BTN_START);
-    pause_btn = create_ctrl_btn(scr, "PAUSE",  btn_cb,  320, 120, BTN_PAUSE);
-    resume_btn = create_ctrl_btn(scr, "RESUME", btn_cb, 80,  240, BTN_RESUME);
-    stop_btn = create_ctrl_btn(scr, "STOP",   btn_cb,   320, 240, BTN_STOP);
+
+    lv_obj_t *btn_cont = lv_obj_create(scr);
+    lv_obj_set_size(btn_cont, 520, 200);
+    lv_obj_align(btn_cont, LV_ALIGN_CENTER, 0, 20);//LV_ALIGN_CENTER  居中对齐，整体往下偏一点
+
+    lv_obj_clear_flag(btn_cont, LV_OBJ_FLAG_SCROLLABLE);//取消这个容器的可滚动属性
+    lv_obj_set_scrollbar_mode(btn_cont, LV_SCROLLBAR_MODE_OFF);//关闭滚动条显示
+
+    /* 容器透明 */                                                                                                       //LV_OPA_COVER 完全不透明，等于 100%
+    lv_obj_set_style_bg_opa(btn_cont, LV_OPA_TRANSP, LV_PART_MAIN);//把容器背景透明度设置为完全透明   LV_OPA_TRANSP  :完全透明 LV_OPA_10   10% 不透明
+    lv_obj_set_style_border_width(btn_cont, 0, LV_PART_MAIN);//边框    边框向里面
+    lv_obj_set_style_outline_width(btn_cont, 0, LV_PART_MAIN);//外轮廓 边框向外面
+    lv_obj_set_style_shadow_width(btn_cont, 100, LV_PART_MAIN);//阴影   边框旁边会加点黑黑的东西
+
+    lv_obj_set_flex_flow(btn_cont, LV_FLEX_FLOW_ROW_WRAP);//LV_FLEX_FLOW_ROW → 横向排列（从左到右）WRAP 换行（一行放不下，自动换到下一行）       COLUMN = 列（竖
+    lv_obj_set_flex_align(btn_cont,
+                        LV_FLEX_ALIGN_CENTER,//管左右的
+                        LV_FLEX_ALIGN_CENTER,//管上下的
+                        LV_FLEX_ALIGN_CENTER);//管多行之间的  LV_FLEX_ALIGN_CENTER：可以理解为让控件之间间距均匀
+                        
+    lv_obj_set_style_pad_row(btn_cont, 20, LV_PART_MAIN);//设置按钮之间的行间距
+    lv_obj_set_style_pad_column(btn_cont, 30, LV_PART_MAIN);//设置按钮之间的列间距
+
+    // start_btn = create_ctrl_btn(scr, "START",  btn_cb,  80,  120, BTN_START);
+    // pause_btn = create_ctrl_btn(scr, "PAUSE",  btn_cb,  320, 120, BTN_PAUSE);
+    // resume_btn = create_ctrl_btn(scr, "RESUME", btn_cb, 80,  240, BTN_RESUME);
+    // stop_btn = create_ctrl_btn(scr, "STOP",   btn_cb,   320, 240, BTN_STOP);
+    start_btn  = create_ctrl_btn_flex(btn_cont, "START",  CTRL_BTN_W, CTRL_BTN_H, BTN_START);
+    pause_btn  = create_ctrl_btn_flex(btn_cont, "PAUSE",  CTRL_BTN_W, CTRL_BTN_H, BTN_PAUSE);
+    resume_btn = create_ctrl_btn_flex(btn_cont, "RESUME", CTRL_BTN_W, CTRL_BTN_H, BTN_RESUME);
+    stop_btn   = create_ctrl_btn_flex(btn_cont, "STOP",   CTRL_BTN_W, CTRL_BTN_H, BTN_STOP);
 
     status_label = lv_label_create(scr);
     lv_label_set_text(status_label, "Ready");
@@ -283,3 +436,5 @@ void ui_main_create(void)
 
     set_app_state(APP_STATE_READY);
 }
+
+
